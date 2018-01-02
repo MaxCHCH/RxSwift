@@ -73,7 +73,7 @@ extension ObservableType {
                     disposable = Disposables.create()
                 }
                 
-                let observer: (Event<E>) -> () = { event in
+                let observer: Observer<E> = Observer { event in
                     switch event {
                     case .next(let value):
                         onNext?(value)
