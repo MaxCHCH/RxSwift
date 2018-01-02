@@ -58,57 +58,59 @@ fileprivate class SwitchSink<SourceType, S: ObservableConvertibleType>
     fileprivate var _hasLatest = false
     
     func run(_ source: Observable<SourceType>) -> Disposable {
-        let subscription = source.subscribe(Observer { event in
-            switch event {
-            case .next(let element):
+        let subscription = source.subscribe(Observer(next: { element in
                 if let (latest, observable) = self.nextElementArrived(element: element) {
                     let d = SingleAssignmentDisposable()
                     self._innerSubscription.disposable = d
 
-                    let disposable = observable.subscribe(Observer { event in
+                    let disposable = observable.subscribe(Observer(next: { element in
                         self._lock.lock(); defer { self._lock.unlock() } // {
-                        switch event {
-                        case .next: break
-                        case .error, .completed:
-                            d.dispose()
-                        }
 
                         if self._latest != latest {
                             return
                         }
 
-                        switch event {
-                        case .next:
-                            self.forwardOn(event)
-                        case .error:
-                            self.forwardOn(event)
-                            self.dispose()
-                        case .completed:
-                            self._hasLatest = false
-                            if self._stopped {
-                                self.forwardOn(event)
-                                self.dispose()
-                            }
+                        self.forwardOnNext(element)
+                    }, error: { error in
+                         self._lock.lock(); defer { self._lock.unlock() } // {
+                            d.dispose()
+                        if self._latest != latest {
+                            return
                         }
-                    })
+
+                        self.forwardOnError(error)
+                        self.dispose()
+                    }, completed: {
+                        self._lock.lock(); defer { self._lock.unlock() } // {
+                            d.dispose()
+                        if self._latest != latest {
+                            return
+                        }
+
+                        self._hasLatest = false
+                        if self._stopped {
+                            self.forwardOnCompleted()
+                            self.dispose()
+                        }
+                    }))
                     d.setDisposable(disposable)
                 }
-            case .error(let error):
+        }, error: { error in
                 self._lock.lock(); defer { self._lock.unlock() }
-                self.forwardOn(.error(error))
+                self.forwardOnError(error)
                 self.dispose()
-            case .completed:
+        }, completed: {
                 self._lock.lock(); defer { self._lock.unlock() }
                 self._stopped = true
 
                 self._subscriptions.dispose()
 
                 if !self._hasLatest {
-                    self.forwardOn(.completed)
+                    self.forwardOnCompleted()
                     self.dispose()
                 }
             }
-        })
+        ))
         _subscriptions.setDisposable(subscription)
         return Disposables.create(_subscriptions, _innerSubscription)
     }
@@ -127,7 +129,7 @@ fileprivate class SwitchSink<SourceType, S: ObservableConvertibleType>
                 return (_latest, observable)
             }
             catch let error {
-                forwardOn(.error(error))
+                forwardOnError(error)
                 dispose()
             }
 

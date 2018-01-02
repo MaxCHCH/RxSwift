@@ -48,7 +48,7 @@ repeat {
         var sum = 0
                 let subscription = Observable<Int>.createAnonymous { observer in
                     for _ in 0 ..< iterations * 10 {
-                        observer.on(.next(1))
+                        observer.onNext(1)
                     }
                     return Disposables.create()
                     }

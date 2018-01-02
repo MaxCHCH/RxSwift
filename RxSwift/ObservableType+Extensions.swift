@@ -73,11 +73,10 @@ extension ObservableType {
                     disposable = Disposables.create()
                 }
                 
-                let observer: Observer<E> = Observer { event in
-                    switch event {
-                    case .next(let value):
+                let observer: Observer<E> = Observer(next: { value in
                         onNext?(value)
-                    case .error(let error):
+                    },
+                    error: { error in
                         if let onError = onError {
                             onError(error)
                         }
@@ -85,11 +84,12 @@ extension ObservableType {
                             Hooks.defaultErrorHandler([], error)
                         }
                         disposable.dispose()
-                    case .completed:
+                    },
+                    completed: {
                         onCompleted?()
                         disposable.dispose()
                     }
-                }
+                )
                 return Disposables.create(
                     self.asObservable().subscribe(observer),
                     disposable

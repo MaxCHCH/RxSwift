@@ -7,15 +7,29 @@
 //
 
 public struct Observer<Element> {
-    public let eventHandler: (Event<Element>) -> ()
+    public let next: (Element) -> ()
+    public let error: (Error) -> ()
+    public let completed: () -> ()
 
-    public init(eventHandler: @escaping (Event<Element>) -> ()) {
-        self.eventHandler = eventHandler
+    public init(next: @escaping (Element) -> (), error: @escaping (Error) -> (), completed: @escaping () -> ()) {
+        self.next = next
+        self.error = error
+        self.completed = completed
     }
 
     @inline(__always)
-    public func on(_ event: Event<Element>) {
-        self.eventHandler(event)
+    public func onNext(_ next: Element) {
+        self.next(next)
+    }
+
+    @inline(__always)
+    public func onError(_ error: Error) {
+        self.error(error)
+    }
+
+    @inline(__always)
+    public func onCompleted() {
+        self.completed()
     }
 }
 

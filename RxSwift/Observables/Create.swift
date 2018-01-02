@@ -55,24 +55,35 @@ final fileprivate class AnonymousObservable<Element> : Producer<Element> {
             let _synchronizationTracker = SynchronizationTracker()
         #endif
 
-        let subscription = _subscribeHandler(Observer { event in
+        let subscription = _subscribeHandler(Observer(next: { element in
             #if DEBUG
                 _synchronizationTracker.register(synchronizationErrorMessage: .default)
                 defer { _synchronizationTracker.unregister() }
             #endif
-            switch event {
-            case .next:
                 if _isStopped == 1 {
                     return
                 }
-                sink.forwardOn(event)
-            case .error, .completed:
+                sink.forwardOnNext(element)
+            }, error: { error in
+                #if DEBUG
+                    _synchronizationTracker.register(synchronizationErrorMessage: .default)
+                    defer { _synchronizationTracker.unregister() }
+                #endif
                 if AtomicCompareAndSwap(0, 1, &_isStopped) {
-                    sink.forwardOn(event)
+                    sink.forwardOnError(error)
+                    sink.dispose()
+                }
+            }, completed: {
+                #if DEBUG
+                    _synchronizationTracker.register(synchronizationErrorMessage: .default)
+                    defer { _synchronizationTracker.unregister() }
+                #endif
+                if AtomicCompareAndSwap(0, 1, &_isStopped) {
+                    sink.forwardOnCompleted()
                     sink.dispose()
                 }
             }
-        })
+        ))
         return (sink: sink, subscription: subscription)
     }
 }

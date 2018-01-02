@@ -23,8 +23,8 @@ class Sink<Element> : Disposable {
         _cancel = cancel
         _disposed = false
     }
-    
-    final func forwardOn(_ event: Event<Element>) {
+
+    final func forwardOnNext(_ next: Element) {
         #if DEBUG
             _synchronizationTracker.register(synchronizationErrorMessage: .default)
             defer { _synchronizationTracker.unregister() }
@@ -32,11 +32,29 @@ class Sink<Element> : Disposable {
         if _disposed {
             return
         }
-        _observer.on(event)
+        _observer.onNext(next)
     }
-    
-    final func forwarder() -> SinkForward<Element> {
-        return SinkForward(forward: self)
+
+    final func forwardOnError(_ error: Error) {
+        #if DEBUG
+            _synchronizationTracker.register(synchronizationErrorMessage: .default)
+            defer { _synchronizationTracker.unregister() }
+        #endif
+        if _disposed {
+            return
+        }
+        _observer.onError(error)
+    }
+
+    final func forwardOnCompleted() {
+        #if DEBUG
+            _synchronizationTracker.register(synchronizationErrorMessage: .default)
+            defer { _synchronizationTracker.unregister() }
+        #endif
+        if _disposed {
+            return
+        }
+        _observer.onCompleted()
     }
 
     final var disposed: Bool {
@@ -52,25 +70,5 @@ class Sink<Element> : Disposable {
 #if TRACE_RESOURCES
        let _ =  Resources.decrementTotal()
 #endif
-    }
-}
-
-final class SinkForward<Element>: ObserverType {
-    typealias E = Element
-    
-    private let _forward: Sink<Element>
-    
-    init(forward: Sink<Element>) {
-        _forward = forward
-    }
-    
-    final func on(_ event: Event<E>) {
-        switch event {
-        case .next:
-            _forward._observer.on(event)
-        case .error, .completed:
-            _forward._observer.on(event)
-            _forward._cancel.dispose()
-        }
     }
 }
